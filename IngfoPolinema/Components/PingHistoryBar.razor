@@ -15,7 +15,7 @@
                     int statusCode = (int)HoveredHistory.StatusCode;
                     string statusDescription = StatusToReadableString(HoveredHistory.StatusCode);
                 }
-                @($"{statusCode} {statusDescription}")
+                @($"{statusCode} {statusDescription} - {(int)HoveredHistory.Duration.TotalMilliseconds}ms")
             </span>
         </div>
     }
@@ -78,7 +78,7 @@
     {
         if (index < Histories.Count())
         {
-            HoveredHistory = Histories[index];
+            HoveredHistory = Histories[^index];
         }
     }
 

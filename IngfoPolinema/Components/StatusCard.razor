@@ -21,8 +21,8 @@
     </p>
     <div class="mt-4">
         <div class="flex items-center justify-between">
-            <span class="text-lg font-medium text-slate-600 mb-2 block">Uptime</span>
-            <span class="text-lg font-medium text-slate-600 mb-2 block">@(_uptimeRate)% - @_uptimeText</span>
+            <span class="text-md font-medium text-slate-600 mb-2 block">@(hasEnoughData ? $"{averageDuration}ms average" : null)</span>
+            <span class="text-md font-medium text-slate-600 mb-2 block">@(uptimeRate)% - @uptimeText</span>
         </div>
         <PingHistoryBar Histories="@Histories" />
     </div>
@@ -40,37 +40,33 @@
     [Parameter, EditorRequired]
     required public List<History> Histories { get; set; }
 
-    private int _uptimeRate
+    private bool hasEnoughData => Histories.Count() > 10;
+
+    private int averageDuration => (int)Histories.Average(history => history.Duration.TotalMilliseconds);
+
+    private int uptimeRate
     {
         get
         {
-            float total = Histories.Count();
-            if (total == 0) return 0;
+            if (!hasEnoughData) return 0;
             float okResponseCount = Histories.Where(history => history.StatusCode == HttpStatusCode.OK).Count();
-            return (int)Math.Round((okResponseCount / total) * 100);
+            return (int)Math.Round((okResponseCount / Histories.Count()) * 100);
         }
     }
 
-    private string _uptimeText
+    private string uptimeText
     {
         get
         {
-            if (Histories.Count() < 10) return "Not Enough Data";
-            int badResponseCount = Histories.Where(history => history.StatusCode != HttpStatusCode.OK).Count();
-            if (badResponseCount > 0) return $"{badResponseCount} Accidents";
+            if (!hasEnoughData) return "Not Enough Data";
+            int badResponseCount = Histories.TakeLast(100).Where(history => history.StatusCode != HttpStatusCode.OK).Count();
+            string responseText = badResponseCount switch
+            {
+                > 1 => "Accidents",
+                _ => "Accident"
+            };
+            if (badResponseCount > 0) return $"{badResponseCount} {responseText}";
             return "All Operational";
         }
     }
-
-    //protected override void OnInitialized()
-    //{
-    //    hubConnection.On("ReceivePingResult", (PingTarget target, Core.DomainModels.PingHistory result) =>
-    //    {
-    //        if (target.Address == Address)
-    //        {
-    //            Histories.Add(new History(result.TimeStamp, result.StatusCode));
-    //        }
-    //        InvokeAsync(StateHasChanged);
-    //    });
-    //}
 }

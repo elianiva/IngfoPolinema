@@ -3,4 +3,4 @@ using System.Net;
 
 namespace IngfoPolinema.ViewModels;
 
-public sealed record class History(DateTimeOffset TimeStamp, HttpStatusCode StatusCode);
+public sealed record class History(TimeSpan Duration, DateTimeOffset TimeStamp, HttpStatusCode StatusCode);

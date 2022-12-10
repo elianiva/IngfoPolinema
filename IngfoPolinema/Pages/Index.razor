@@ -65,13 +65,13 @@
                     PingHistory history => ServiceStatus.InternalServerError,
                     _ => ServiceStatus.Unknown
                 },
-                Histories = target.Histories.Select(history => new History(history.TimeStamp, history.StatusCode)).Take(100).ToList()
+                Histories = target.Histories.Select(history => new History(history.Duration, history.TimeStamp, history.StatusCode)).TakeLast(100).ToList()
             }).ToList();
 
-        hubConnection.On("ReceivePingResult", (PingTarget target, Core.DomainModels.PingHistory result) =>
+        hubConnection.On("ReceivePingResult", (PingTarget target, Core.DomainModels.PingHistory history) =>
         {
             ServicePingDetail detail = pingTargetDetails.First(pingTarget => pingTarget.Address == target.Address);
-            detail.Histories.Add(new History(result.TimeStamp, result.StatusCode));
+            detail.Histories.Add(new History(history.Duration, history.TimeStamp, history.StatusCode));
             InvokeAsync(StateHasChanged);
         });
 
