@@ -1,0 +1,88 @@
+﻿@page "/"
+
+@using System.Net;
+@using IngfoPolinema.Core.DomainModels;
+@using IngfoPolinema.Services;
+@using Microsoft.AspNetCore.SignalR.Client;
+@using System.Text.RegularExpressions;
+
+@inject PingService pingService;
+@inject HubConnection hubConnection;
+@inject IJSRuntime jsRuntime;
+
+@implements IAsyncDisposable;
+
+<PageTitle>Index</PageTitle>
+
+<div class="mx-auto max-w-[860px] p-8">
+    <header class="rounded-lg bg-gradient-to-r from-cyan-500 to-blue-500 flex items-center justify-center h-[10rem]">
+        <h1 class="text-[4rem] font-bold text-white">INGFO POLINEMA</h1>
+    </header>
+
+    <div class="flex gap-4 my-4 p-4 w-full border-2 border-slate-200 rounded-md text-slate-500">
+        <SearchIcon />
+        <input class="w-full outline-none placeholder:text-slate-400 text-slate-700"
+               placeholder="Masukkan alamat atau deskripsi website..."
+               @bind="SearchQuery"
+               @bind:event="oninput" />
+    </div>
+
+    <div class="flex flex-col gap-4">
+        @foreach (ServicePingDetail detail in pingTargetDetails.Where(detail => MatchWithQuery(detail)))
+        {
+            <StatusCard Title="@detail.Name"
+                    Description="@detail.Description"
+                    Status="@detail.Status"
+                    Histories="@detail.Histories"
+                    Address="@detail.Address" />
+        }
+    </div>
+</div>
+
+
+@code {
+    private string? SearchQuery { get; set; }
+    private List<ServicePingDetail> pingTargetDetails = new();
+
+    private bool MatchWithQuery(ServicePingDetail detail)
+    {
+        if (string.IsNullOrEmpty(SearchQuery)) return true;
+        return detail.Name.Contains(SearchQuery, StringComparison.InvariantCultureIgnoreCase)
+            || detail.Description.Contains(SearchQuery, StringComparison.InvariantCultureIgnoreCase)
+            || detail.Address.AbsoluteUri.Contains(SearchQuery, StringComparison.InvariantCultureIgnoreCase);
+    }
+
+    protected override async Task OnInitializedAsync()
+    {
+        pingTargetDetails = pingService.GetPingTargets().Select(target => new ServicePingDetail
+            {
+                Name = target.Name,
+                Description = target.Description,
+                Address = target.Address,
+                Status = target.Histories.LastOrDefault() switch
+                {
+                    PingHistory history when history.StatusCode == HttpStatusCode.OK => ServiceStatus.Operational,
+                    PingHistory history => ServiceStatus.InternalServerError,
+                    _ => ServiceStatus.Unknown
+                },
+                Histories = target.Histories.Select(history => new History(history.TimeStamp, history.StatusCode)).Take(100).ToList()
+            }).ToList();
+
+        hubConnection.On("ReceivePingResult", (PingTarget target, Core.DomainModels.PingHistory result) =>
+        {
+            ServicePingDetail detail = pingTargetDetails.First(pingTarget => pingTarget.Address == target.Address);
+            detail.Histories.Add(new History(result.TimeStamp, result.StatusCode));
+            InvokeAsync(StateHasChanged);
+        });
+
+        await hubConnection.StartAsync();
+    }
+
+    public async ValueTask DisposeAsync()
+    {
+        if (hubConnection is not null)
+        {
+            await hubConnection.DisposeAsync();
+        }
+    }
+}

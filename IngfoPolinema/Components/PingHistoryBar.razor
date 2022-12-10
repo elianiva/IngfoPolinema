@@ -1,0 +1,89 @@
+﻿@using System.Net;
+@using System.Text.RegularExpressions;
+
+
+
+<div class="relative flex gap-1 cursor-pointer @($"w-[{Width}px]")" @onmouseover="UpdateMousePosition">
+    @if (HoveredHistory is not null)
+    {
+        <div class="absolute text-center p-4 w-[24rem] bg-[rgba(0,0,0,0.625)] backdrop-blur-md -top-20 rounded-md text-white transform-gpu -translate-x-1/2 @($"left-[{MousePosition.X}px]")">
+            <span class="block">
+                @HoveredHistory.TimeStamp.ToString("dddd, dd MMMM yyyy | HH:mm:ss")
+            </span>
+            <span class="font-semibold">
+                @{
+                    int statusCode = (int)HoveredHistory.StatusCode;
+                    string statusDescription = StatusToReadableString(HoveredHistory.StatusCode);
+                }
+                @($"{statusCode} {statusDescription}")
+            </span>
+        </div>
+    }
+
+    <svg width="@Width" height="@Height">
+        @foreach (int i in Enumerable.Range(1, (int)BarAmount))
+        {
+            bool hasPing = i < Histories.Count();
+            bool ok = hasPing ? Histories[^i].StatusCode == HttpStatusCode.OK : false;
+            (float X, float Y) = CalculateBarPosition(i, ok);
+            float height = CalculateBarHeight(ok);
+            float width = CalculateBarWidth();
+
+            <rect class="@(hasPing ? (ok ? "fill-green-500" : "fill-red-500") : "fill-slate-400")"
+              width="@width"
+              height="@(hasPing ? height : Height)"
+              x="@X"
+              y="@(hasPing ? Y : 0)"
+              rx="@BarRadius"
+              ry="@BarRadius"
+              @onmouseover="(e) => ShowHistoryDetail(e, i)"
+              @onmouseleave="HideHistoryDetail" />
+        }
+    </svg>
+</div>
+
+@code {
+    [Parameter]
+    required public List<History> Histories { get; set; }
+
+    private float Gap = 3;
+    private int Width = 740;
+    private int Height = 32;
+    private float ErrorHeightMultiplier = 0.75f;
+    private float BarAmount = 100;
+
+    private float BarRadius => CalculateBarWidth() / 2;
+
+    private float CalculateBarWidth() => (Width - Gap * (BarAmount - 1)) / BarAmount;
+    private float CalculateBarHeight(bool ok) => Height * (ok ? 1 : ErrorHeightMultiplier);
+    private (float X, float Y) CalculateBarPosition(int index, bool ok)
+    {
+        float width = CalculateBarWidth();
+        float x = Width - index * (width + Gap);
+        float y = (ok ? 0 : (Height - Height * ErrorHeightMultiplier));
+        return (x, y);
+    }
+
+    private History? HoveredHistory;
+    private (double X, double Y) MousePosition;
+
+    private string StatusToReadableString(HttpStatusCode statusCode) => Regex.Replace(statusCode.ToString(), "(?<=[a-z])([A-Z])", " $1", RegexOptions.Compiled);
+
+    private void UpdateMousePosition(MouseEventArgs @event)
+    {
+        MousePosition = (@event.OffsetX, @event.OffsetY);
+    }
+
+    private void ShowHistoryDetail(MouseEventArgs @event, int index)
+    {
+        if (index < Histories.Count())
+        {
+            HoveredHistory = Histories[index];
+        }
+    }
+
+    private void HideHistoryDetail(MouseEventArgs @event)
+    {
+        HoveredHistory = null;
+    }
+}

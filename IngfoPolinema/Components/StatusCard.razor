@@ -1,0 +1,76 @@
+﻿@using System.Net;
+@using IngfoPolinema.Core.DomainModels;
+@using IngfoPolinema.ViewModels;
+@using Microsoft.AspNetCore.SignalR.Client;
+
+@inject HubConnection hubConnection;
+
+<div class="p-6 bg-white border-2 border-slate-200 rounded-md">
+    <div class="flex items-center justify-between">
+        <a class="text-xl font-semibold flex items-start cursor-pointer text-slate-700 hover:text-sky-600" href="@Address" target="_blank">
+            @Title <DiagonalRightArrowIcon />
+        </a>
+
+        <div class="flex items-center gap-2 py-2 px-4 border boreder-slate-200 rounded-full">
+            <div class="w-3 h-3 rounded-full text-xs @(Status == ServiceStatus.Operational ? "bg-green-600" : "bg-red-600")" />
+            @Status
+        </div>
+    </div>
+    <p class="block text-slate-600">
+        @Description
+    </p>
+    <div class="mt-4">
+        <div class="flex items-center justify-between">
+            <span class="text-lg font-medium text-slate-600 mb-2 block">Uptime</span>
+            <span class="text-lg font-medium text-slate-600 mb-2 block">@(_uptimeRate)% - @_uptimeText</span>
+        </div>
+        <PingHistoryBar Histories="@Histories" />
+    </div>
+</div>
+
+@code {
+    [Parameter, EditorRequired]
+    required public string Title { get; set; }
+    [Parameter, EditorRequired]
+    required public string Description { get; set; }
+    [Parameter, EditorRequired]
+    required public Uri Address { get; set; }
+    [Parameter, EditorRequired]
+    required public ServiceStatus Status { get; set; }
+    [Parameter, EditorRequired]
+    required public List<History> Histories { get; set; }
+
+    private int _uptimeRate
+    {
+        get
+        {
+            float total = Histories.Count();
+            if (total == 0) return 0;
+            float okResponseCount = Histories.Where(history => history.StatusCode == HttpStatusCode.OK).Count();
+            return (int)Math.Round((okResponseCount / total) * 100);
+        }
+    }
+
+    private string _uptimeText
+    {
+        get
+        {
+            if (Histories.Count() < 10) return "Not Enough Data";
+            int badResponseCount = Histories.Where(history => history.StatusCode != HttpStatusCode.OK).Count();
+            if (badResponseCount > 0) return $"{badResponseCount} Accidents";
+            return "All Operational";
+        }
+    }
+
+    //protected override void OnInitialized()
+    //{
+    //    hubConnection.On("ReceivePingResult", (PingTarget target, Core.DomainModels.PingHistory result) =>
+    //    {
+    //        if (target.Address == Address)
+    //        {
+    //            Histories.Add(new History(result.TimeStamp, result.StatusCode));
+    //        }
+    //        InvokeAsync(StateHasChanged);
+    //    });
+    //}
+}
