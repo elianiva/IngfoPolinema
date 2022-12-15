@@ -15,7 +15,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\Core\IngfoPolinema.Core.csproj" />
+    <ProjectReference Include="..\IngfoPolinema.Core\IngfoPolinema.Core.csproj" />
   </ItemGroup>
 
 </Project>
